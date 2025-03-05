@@ -1,0 +1,33 @@
+$clientId = "client-id"
+$clientSecret = "{bcrypt}$2a$10$7Q7g.zOW/MBW9AV9Uz.Jve8E0CzQ1oFS7S6Aoh9jI81wb9hR2E4Ui"
+$authHeader = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("$clientId`:$clientSecret"))
+Invoke-WebRequest -Uri "http://localhost:8081/oauth2/token" `
+>>   -Method Post `
+>>   -Headers @{
+>>       "Authorization" = "Basic $authHeader"
+>>       "Content-Type" = "application/x-www-form-urlencoded"
+>>   } `
+>>   -Body "grant_type=client_credentials"
+
+
+from below powershel command getting Basic Auth to make below command
+
+> [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("client-id:client-secret"))
+> Y2xpZW50LWlkOmNsaWVudC1zZWNyZXQ=
+
+curl --location 'http://localhost:8081/oauth2/token' \
+--header 'Authorization: Basic Y2xpZW50LWlkOmNsaWVudC1zZWNyZXQ=' \
+--header 'Content-Type: application/x-www-form-urlencoded' \
+--header 'Cookie: JSESSIONID=D9688819C9B027BEED60D865A5F98947' \
+--form 'grant_type="client_credentials"'
+
+
+postman collection
+
+curl --location 'http://localhost:8081/oauth2/token' \
+--header 'Authorization: Basic Y2xpZW50LWlkOmNsaWVudC1zZWNyZXQ=' \
+--header 'Content-Type: application/x-www-form-urlencoded' \
+--form 'grant_type="client_credentials"'
+
+
+curl --location 'http://localhost:8081/.well-known/jwks.json'
