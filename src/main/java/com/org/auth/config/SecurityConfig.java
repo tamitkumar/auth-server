@@ -1,8 +1,18 @@
 package com.org.auth.config;
 
+import com.org.auth.filter.JwtAuthenticationFilter;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -15,46 +25,56 @@ import org.springframework.security.oauth2.server.authorization.token.OAuth2Toke
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import static org.springframework.security.config.Customizer.withDefaults;
 
 @Configuration
+@EnableWebSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
 
+//    @Value("${admin.username}")
+//    private String adminUsername;
+//
+//    @Value("${admin.password}")
+//    private String adminPassword;
+//
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
     @Bean
-    public UserDetailsService userDetailsService(PasswordEncoder passwordEncoder) {
-        UserDetails user = User.withUsername("admin")
-                .password(passwordEncoder.encode("admin123"))
-                .roles("ADMIN")
-                .build();
-        return new InMemoryUserDetailsManager(user);
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config)
+            throws Exception {
+        return config.getAuthenticationManager();
     }
 
     @Bean
-    public OAuth2TokenCustomizer<JwtEncodingContext> tokenCustomizer() {
-        return context -> {
-            if (context.getTokenType().equals(OAuth2TokenType.ACCESS_TOKEN)) {
-                String clientId = context.getPrincipal().getName(); // Get the client requesting the token
-                context.getClaims().claims(claims -> claims.put("aud", clientId)); // Set audience as the client ID
-            }
-        };
-    }
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, @Lazy JwtAuthenticationFilter oncePerRequestFilter) throws Exception {
+        http.csrf(AbstractHttpConfigurer::disable)
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/auth/token").permitAll()
+                        .requestMatchers("/api/roles/promote/**").hasRole("ADMIN")
+                        .requestMatchers("/api/roles/demote/**").hasAnyRole("ADMIN", "MANAGER")
+                        .requestMatchers("/api/roles/user").hasAnyRole("ADMIN", "MANAGER")
+                        .requestMatchers("/api/roles/users-with-roles").hasAnyRole("ADMIN", "MANAGER", "CLIENT", "SERVICE")
 
-    @Bean
-    public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http) throws Exception {
-        OAuth2AuthorizationServerConfigurer authorizationServerConfigurer =
-                new OAuth2AuthorizationServerConfigurer();
+                        // ✅ Add these for service registry
+                        .requestMatchers("/api/registry/services/register").permitAll() // allow anyone to register a service
+                        .requestMatchers("/api/registry/services/approve/**").hasAnyRole("ADMIN", "MANAGER")
+                        .requestMatchers("/api/registry/services/all").hasAnyRole("ADMIN", "MANAGER")
 
-        http.securityMatcher("/oauth2/**") // Secure only OAuth2 endpoints
-                .authorizeHttpRequests(auth -> auth.anyRequest().authenticated()) // Require authentication
-                .csrf(csrf -> csrf.ignoringRequestMatchers("/oauth2/token")) // Disable CSRF for token endpoint
-                .exceptionHandling(exceptions -> exceptions
-                        .authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login"))
+                        .requestMatchers("/api/scope/registry/request").permitAll() // allow anyone to register a service
+                        .requestMatchers("/api/scope/registry/list/**").permitAll()
+                        .requestMatchers("/api/scope/registry/approve").hasAnyRole("ADMIN", "MANAGER")
+                        .anyRequest().authenticated()
                 )
-                .with(authorizationServerConfigurer, customizer -> {}); // ✅ No deprecated `apply()`
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .httpBasic(Customizer.withDefaults())
+                .addFilterBefore(oncePerRequestFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

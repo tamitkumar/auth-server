@@ -11,7 +11,7 @@ PS D:\AuthServer\auth-server>  cd \auth-server\src\main\resources>
 PS D:\DemoSecurityApp\demo-security-app> keytool -importkeystore -srckeystore D:\DemoSecurityApp\demo-security-app\src\main\resources\demosecurity.p12 -srcstoretype PKCS12 -destkeystore "C:\JAVA\jdk-17.0.12\lib\security\cacerts" -deststoretype JKS -storepass changeit
 
 `Run Auth Server`
-
+./gradlew bootRun --args='--admin.username=admin --admin.password=admin123'
 ./gradlew bootRun
 
 `Register Client Services in Auth Server`
@@ -98,3 +98,15 @@ public class SecurityConfig {
 
 
 `Below is the Auth server URL: https://localhost:8081/oauth2/jwks`
+
+`Below is Swgger Link https://localhost:8081/swagger-ui/index.htm`
+
+![img.png](img.png)
+
+
+`clientId: s1-client-id`
+`clientSecret: s1-client-secret`
+`scope: read, delete, update, create`
+
+
+
